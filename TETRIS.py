@@ -21,6 +21,54 @@ def load_image(name, color_key=None):
     return image
 
 
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+
+def start_screen():
+    screen.fill((88, 222, 211))
+    text_coord = 50
+    intro_text = ["Правила игры"]
+    """fon = pygame.transform.scale(load_image('fon.jpg'), (WIDTH, HEIGHT))
+    screen.blit(fon, (0, 0))"""
+    font_main = pygame.font.Font("unicephalon.ttf", 60)
+    s_r = font_main.render("TETRIS", 1, pygame.Color('white'))
+    in_r = s_r.get_rect()
+    in_r.x = (WIDTH - in_r.width) // 2
+    in_r.top = text_coord
+    screen.blit(s_r, in_r)
+    font = pygame.font.Font(None, 100)
+
+    button_str = font.render('START', True, pygame.Color('white'))
+    intro_rect = button_str.get_rect()
+    width_but, height_but = intro_rect.width + 20, intro_rect.height + 20
+    pygame.draw.rect(screen, (255, 255, 87), ((WIDTH - width_but) // 2, (HEIGHT - height_but) // 3 * 2,
+                                              width_but, height_but))
+    intro_rect.x = (WIDTH - width_but) // 2 + 10
+    intro_rect.top = (HEIGHT - height_but) // 3 * 2 + 10
+    screen.blit(button_str, intro_rect)
+
+    """for line in intro_text:
+        string_rendered = font.render(line, 1, pygame.Color('white'))
+        intro_rect = string_rendered.get_rect()
+        text_coord += 10
+        text_coord += intro_rect.height
+        intro_rect.top = text_coord
+        intro_rect.x = 10
+        screen.blit(string_rendered, intro_rect)"""
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.KEYDOWN or \
+                    event.type == pygame.MOUSEBUTTONDOWN:
+                return  # начинаем игру
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 class Border(pygame.sprite.Sprite):
     # строго вертикальный или строго горизонтальный отрезок
     def __init__(self, x1, y1, x2, y2):
@@ -36,31 +84,27 @@ class Border(pygame.sprite.Sprite):
 
 
 class Figure(pygame.sprite.Sprite):
-    def __init__(self, filename):  # 'tetris_sp.png'
+    def __init__(self, filename):   # 'tetris_sp.png'
         super().__init__()
         self.image = load_image(filename, (128, 128, 128, 255))
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
-        self.rect.height = self.rect.height + 20
+
         self.v_down = DIST
         self.v_right_left = self.rect.width // 3
-        self.rect.x = random.choice([i for i in range(10, WIDTH - self.rect.width - 20 + 1, self.rect.width // 3)])
+        self.rect.x = random.choice([i for i in range(0, WIDTH - self.rect.width + 2, self.rect.width // 3)])
         self.rect.top = 30
 
     def checking(self):
-        col_m = False  # пересечение с остальными фигурами
-        col_l, col_r, col_g = False, False, False  # пересечение с верт и горизонт стенками
+        col_m = False      # пересечение с остальными фигурами
+        col_l, col_r, col_g = False, False, False     # пересечение с верт и горизонт стенками
         left, right = VER_BORDERS.sprites()
         if pygame.sprite.collide_mask(self, left):
             col_l = True
         if pygame.sprite.collide_mask(self, right):
             col_r = True
-        old_rect = self.rect
-        new_rect = self.rect.move(0, self.v_down)
-        self.rect = new_rect
         for sp in HOR_BORDERS.sprites():
             if pygame.sprite.collide_mask(self, sp):
-                print(pygame.sprite.collide_mask(self, sp))
                 col_g = True
                 break
         for sp2 in ALL_FIGURES.sprites():
@@ -68,8 +112,6 @@ class Figure(pygame.sprite.Sprite):
             if pygame.sprite.collide_mask(self, sp2) and self != sp2:
                 col_m = True
                 break
-        if col_g or col_m:
-            self.rect = old_rect
         return col_l, col_r, col_g, col_m
 
     def update(self):
@@ -82,20 +124,20 @@ class Figure(pygame.sprite.Sprite):
             self.rect = self.rect.move(0, self.v_down)
 
     def moving(self, comand):
-        col_l, col_r, col_g, col_m = self.checking()
+        col_l, col_r, *another = self.checking()
         if comand == 'l' and not col_l:
             self.rect = self.rect.move(-1 * self.v_right_left, 0)
         elif comand == 'r' and not col_r:
             self.rect = self.rect.move(self.v_right_left, 0)
         elif comand == 'd' and not any(another):
             self.rect = self.rect.move(0, self.v_down)
-        if comand == 'u':
+        else:
             self.rect = self.rect.move(0, -1 * DIST)
 
 
 def make_design():
     Border(10, 10, WIDTH - 10, 10)  # верхняя
-    Border(10, HEIGHT - 10, WIDTH - 10, HEIGHT - 10)  # нижняя
+    Border(10, HEIGHT -10, WIDTH - 10, HEIGHT -10)  # нижняя
     Border(10, 10, 10, HEIGHT - 10)  # левая
     Border(WIDTH - 10, 10, WIDTH - 10, HEIGHT - 10)  # правая
 
@@ -121,17 +163,12 @@ BORDERS = pygame.sprite.Group()
 VER_BORDERS = pygame.sprite.Group()
 HOR_BORDERS = pygame.sprite.Group()
 
+
 # start_screen()
 sp = None
 make_design()
 while running:
     screen.fill((255, 255, 255))
-
-    pygame.draw.line(screen, (0, 0, 0), (10, 10), (WIDTH - 10, 10))
-    pygame.draw.line(screen, (0, 0, 0), (10, HEIGHT - 10), (WIDTH - 10, HEIGHT - 10))
-    pygame.draw.line(screen, (0, 0, 0), (10, 10), (10, HEIGHT - 10))
-    pygame.draw.line(screen, (0, 0, 0), (WIDTH - 10, 10), (WIDTH - 10, HEIGHT - 10))
-
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
