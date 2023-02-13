@@ -47,14 +47,31 @@ class Figure(pygame.sprite.Sprite):
         self.rect.x = random.choice([i for i in range(10, WIDTH - self.rect.width - 20 + 1, self.rect.width // 3)])
         self.rect.top = 30
 
-    def checking(self):
+    def update(self):
+        col_l, col_r, *another = self.check_down()
+        if any(another):
+            # self.rect = self.rect.move(0, self.v_down * -1)
+            self.v_down = 0
+            ALL_FIGURES.add(self)
+        else:
+            self.rect = self.rect.move(0, self.v_down)
+
+    def moving(self, comand):
+        col_l, col_r, col_g, col_m = self.check_down()
+        if comand == 'l' and not col_l:
+            self.rect = self.rect.move(-1 * self.v_right_left, 0)
+        elif comand == 'r' and not col_r:
+            self.rect = self.rect.move(self.v_right_left, 0)
+        elif comand == 'd' and not any(another):
+            self.rect = self.rect.move(0, self.v_down)
+        if comand == 'u':
+            self.rect = self.rect.move(0, -1 * DIST)
+
+    def check_down(self):
+        col_down_border, col_down_sprite = False, False     # пересечение с горизонт границей и нижними спрайтами
         col_m = False  # пересечение с остальными фигурами
         col_l, col_r, col_g = False, False, False  # пересечение с верт и горизонт стенками
-        left, right = VER_BORDERS.sprites()
-        if pygame.sprite.collide_mask(self, left):
-            col_l = True
-        if pygame.sprite.collide_mask(self, right):
-            col_r = True
+
         old_rect = self.rect
         new_rect = self.rect.move(0, self.v_down)
         self.rect = new_rect
@@ -72,25 +89,29 @@ class Figure(pygame.sprite.Sprite):
             self.rect = old_rect
         return col_l, col_r, col_g, col_m
 
-    def update(self):
-        col_l, col_r, *another = self.checking()
-        if any(another):
-            # self.rect = self.rect.move(0, self.v_down * -1)
-            self.v_down = 0
-            ALL_FIGURES.add(self)
-        else:
-            self.rect = self.rect.move(0, self.v_down)
+    def check_left_right(self):
+        left, right = VER_BORDERS.sprites()
+        col_left_border, col_right_border = False, False
+        col_left_sprite, col_right_sprite = False, False
 
-    def moving(self, comand):
-        col_l, col_r, col_g, col_m = self.checking()
-        if comand == 'l' and not col_l:
-            self.rect = self.rect.move(-1 * self.v_right_left, 0)
-        elif comand == 'r' and not col_r:
-            self.rect = self.rect.move(self.v_right_left, 0)
-        elif comand == 'd' and not any(another):
-            self.rect = self.rect.move(0, self.v_down)
-        if comand == 'u':
-            self.rect = self.rect.move(0, -1 * DIST)
+        moving_self_left = self
+        moving_self_left = moving_self_left.rect.move(-1 * self.v_right_left, 0)    # сдвинулись влево
+
+        moving_self_right = self
+        moving_self_right = moving_self_right.rect.move(self.v_right_left, 0)   # сдвинулись вправо
+
+        if pygame.sprite.collide_mask(moving_self_left, left):
+            col_left_border = True
+
+        if pygame.sprite.collide_mask(moving_self_right, right):
+            col_right_border = True
+
+        for sp in ALL_FIGURES.sprites():
+            if pygame.sprite.collide_mask(moving_self_left, sp):
+                col_left_sprite = True
+            if pygame.sprite.collide_mask(moving_self_right, sp):
+                col_right_sprite = True
+        return col_left_border, col_right_border, col_left_sprite, col_right_sprite
 
 
 def make_design():
