@@ -33,6 +33,7 @@ class Border(pygame.sprite.Sprite):
             self.add(HOR_BORDERS)
             self.image = pygame.Surface([x2 - x1, 1])
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
+        self.mask = pygame.mask.from_surface(self.image)
 
 
 class Figure(pygame.sprite.Sprite):
@@ -41,89 +42,76 @@ class Figure(pygame.sprite.Sprite):
         self.image = load_image(filename, (128, 128, 128, 255))
         self.rect = self.image.get_rect()
         self.mask = pygame.mask.from_surface(self.image)
-        self.rect.height = self.rect.height + 20
         self.v_down = DIST
         self.v_right_left = self.rect.width // 3
         self.rect.x = random.choice([i for i in range(10, WIDTH - self.rect.width - 20 + 1, self.rect.width // 3)])
         self.rect.top = 30
 
     def update(self):
-        col_l, col_r, *another = self.check_down()
-        if any(another):
-            # self.rect = self.rect.move(0, self.v_down * -1)
+        col_down_border, col_down_sprite = self.check_down()
+        if col_down_border or col_down_sprite:
             self.v_down = 0
             ALL_FIGURES.add(self)
         else:
             self.rect = self.rect.move(0, self.v_down)
 
     def moving(self, comand):
-        col_l, col_r, col_g, col_m = self.check_down()
-        if comand == 'l' and not col_l:
+        col_left_border, col_right_border, col_left_sprite, col_right_sprite = self.check_left_right()
+        col_down_border, col_down_sprite = self.check_down()
+        if comand == 'l' and not col_left_border and not col_left_sprite:
             self.rect = self.rect.move(-1 * self.v_right_left, 0)
-        elif comand == 'r' and not col_r:
+        elif comand == 'r' and not col_right_border and not col_right_sprite:
             self.rect = self.rect.move(self.v_right_left, 0)
-        elif comand == 'd' and not any(another):
+        elif comand == 'd' and not col_down_border and not col_down_sprite:
             self.rect = self.rect.move(0, self.v_down)
         if comand == 'u':
             self.rect = self.rect.move(0, -1 * DIST)
 
     def check_down(self):
         col_down_border, col_down_sprite = False, False     # пересечение с горизонт границей и нижними спрайтами
-        col_m = False  # пересечение с остальными фигурами
-        col_l, col_r, col_g = False, False, False  # пересечение с верт и горизонт стенками
 
-        old_rect = self.rect
-        new_rect = self.rect.move(0, self.v_down)
-        self.rect = new_rect
-        for sp in HOR_BORDERS.sprites():
-            if pygame.sprite.collide_mask(self, sp):
-                print(pygame.sprite.collide_mask(self, sp))
-                col_g = True
+        old_rect = self.rect.copy()
+
+        moving_self_down = self
+        moving_self_down.rect = moving_self_down.rect.move(0, moving_self_down.v_down)
+
+        if pygame.sprite.collide_mask(moving_self_down, DOWN_BORDER):
+            col_down_border = True
+
+        for sp in ALL_FIGURES.sprites():
+            if pygame.sprite.collide_mask(moving_self_down, sp):
+                col_down_sprite = True
                 break
-        for sp2 in ALL_FIGURES.sprites():
-            # print(sp2.rect.y, self.rect.y, self.rect.y + self.v_down)
-            if pygame.sprite.collide_mask(self, sp2) and self != sp2:
-                col_m = True
-                break
-        if col_g or col_m:
-            self.rect = old_rect
-        return col_l, col_r, col_g, col_m
+
+        self.rect = old_rect.copy()
+        return col_down_border, col_down_sprite
 
     def check_left_right(self):
         left, right = VER_BORDERS.sprites()
         col_left_border, col_right_border = False, False
         col_left_sprite, col_right_sprite = False, False
 
+        old_rect = self.rect.copy()
+
         moving_self_left = self
-        moving_self_left = moving_self_left.rect.move(-1 * self.v_right_left, 0)    # сдвинулись влево
-
-        moving_self_right = self
-        moving_self_right = moving_self_right.rect.move(self.v_right_left, 0)   # сдвинулись вправо
-
+        moving_self_left.rect = moving_self_left.rect.move(-1 * self.v_right_left, 0)    # сдвинулись влево
         if pygame.sprite.collide_mask(moving_self_left, left):
             col_left_border = True
-
-        if pygame.sprite.collide_mask(moving_self_right, right):
-            col_right_border = True
-
         for sp in ALL_FIGURES.sprites():
             if pygame.sprite.collide_mask(moving_self_left, sp):
                 col_left_sprite = True
+        self.rect = old_rect.copy()
+
+        moving_self_right = self
+        moving_self_right.rect = moving_self_right.rect.move(self.v_right_left, 0)   # сдвинулись вправо
+        if pygame.sprite.collide_mask(moving_self_right, right):
+            col_right_border = True
+        for sp in ALL_FIGURES.sprites():
             if pygame.sprite.collide_mask(moving_self_right, sp):
                 col_right_sprite = True
+        self.rect = old_rect.copy()
+
         return col_left_border, col_right_border, col_left_sprite, col_right_sprite
-
-
-def make_design():
-    Border(10, 10, WIDTH - 10, 10)  # верхняя
-    Border(10, HEIGHT - 10, WIDTH - 10, HEIGHT - 10)  # нижняя
-    Border(10, 10, 10, HEIGHT - 10)  # левая
-    Border(WIDTH - 10, 10, WIDTH - 10, HEIGHT - 10)  # правая
-
-    pygame.draw.line(screen, (255, 255, 0), (10, 10), (WIDTH - 10, 10))
-    pygame.draw.line(screen, (255, 255, 0), (10, HEIGHT - 10), (WIDTH - 10, HEIGHT - 10))
-    pygame.draw.line(screen, (255, 255, 0), (10, 10), (10, HEIGHT - 10))
-    pygame.draw.line(screen, (255, 255, 0), (WIDTH - 10, 10), (WIDTH - 10, HEIGHT - 10))
 
 
 pygame.init()
@@ -144,7 +132,16 @@ HOR_BORDERS = pygame.sprite.Group()
 
 # start_screen()
 sp = None
-make_design()
+
+TOP_BORDER = Border(10, 10, WIDTH - 10, 10)  # верхняя
+print(TOP_BORDER.rect.x, TOP_BORDER.rect.y)
+DOWN_BORDER = Border(10, HEIGHT - 10, WIDTH - 10, HEIGHT - 10)  # нижняя
+print(DOWN_BORDER.rect.x, DOWN_BORDER.rect.y)
+LEFT_BORDER = Border(10, 10, 10, HEIGHT - 10)  # левая
+print(LEFT_BORDER.rect.x, LEFT_BORDER.rect.y)
+RIGHT_BORDER = Border(WIDTH - 10, 10, WIDTH - 10, HEIGHT - 10)  # правая
+print(RIGHT_BORDER.rect.x, RIGHT_BORDER.rect.y)
+
 while running:
     screen.fill((255, 255, 255))
 
