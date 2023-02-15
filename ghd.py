@@ -64,8 +64,8 @@ class Figure(pygame.sprite.Sprite):
             self.rect = self.rect.move(self.v_right_left, 0)
         elif comand == 'd' and not col_down_border and not col_down_sprite:
             self.rect = self.rect.move(0, self.v_down)
-        if comand == 'u':
-            self.rect = self.rect.move(0, -1 * DIST)
+        if comand == 'd':
+            self.rect = self.rect.move(0, DIST)
 
     def check_down(self):
         col_down_border, col_down_sprite = False, False     # пересечение с горизонт границей и нижними спрайтами
@@ -73,7 +73,7 @@ class Figure(pygame.sprite.Sprite):
         old_rect = self.rect.copy()
 
         moving_self_down = self
-        moving_self_down.rect = moving_self_down.rect.move(0, moving_self_down.v_down)
+        moving_self_down.rect = moving_self_down.rect.move(0, moving_self_down.v_down - 1)
 
         if pygame.sprite.collide_mask(moving_self_down, DOWN_BORDER):
             col_down_border = True
@@ -117,7 +117,7 @@ class Figure(pygame.sprite.Sprite):
 pygame.init()
 FPS = 20
 one_sq = 30
-size = WIDTH, HEIGHT = 20 * one_sq, 20 * one_sq
+size = WIDTH, HEIGHT = 35 * one_sq, 30 * one_sq
 # print(WIDTH, HEIGHT)
 DIST = 10
 screen = pygame.display.set_mode(size)
