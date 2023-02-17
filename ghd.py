@@ -64,8 +64,6 @@ class Figure(pygame.sprite.Sprite):
             self.rect = self.rect.move(self.v_right_left, 0)
         elif comand == 'd' and not col_down_border and not col_down_sprite:
             self.rect = self.rect.move(0, self.v_down)
-        if comand == 'd':
-            self.rect = self.rect.move(0, DIST)
 
     def check_down(self):
         col_down_border, col_down_sprite = False, False     # пересечение с горизонт границей и нижними спрайтами
@@ -94,7 +92,7 @@ class Figure(pygame.sprite.Sprite):
         old_rect = self.rect.copy()
 
         moving_self_left = self
-        moving_self_left.rect = moving_self_left.rect.move(-1 * self.v_right_left + 2, 0)    # сдвинулись влево
+        moving_self_left.rect = moving_self_left.rect.move(-1 * self.v_right_left + 4, 0)    # сдвинулись влево
         if pygame.sprite.collide_mask(moving_self_left, left):
             col_left_border = True
         for sp in ALL_FIGURES.sprites():
@@ -103,7 +101,7 @@ class Figure(pygame.sprite.Sprite):
         self.rect = old_rect.copy()
 
         moving_self_right = self
-        moving_self_right.rect = moving_self_right.rect.move(self.v_right_left - 2, 0)   # сдвинулись вправо
+        moving_self_right.rect = moving_self_right.rect.move(self.v_right_left - 3, 0)   # сдвинулись вправо
         if pygame.sprite.collide_mask(moving_self_right, right):
             col_right_border = True
         for sp in ALL_FIGURES.sprites():
@@ -118,8 +116,7 @@ pygame.init()
 FPS = 20
 one_sq = 30
 size = WIDTH, HEIGHT = 35 * one_sq, 30 * one_sq
-# print(WIDTH, HEIGHT)
-DIST = 10
+DIST = 30
 screen = pygame.display.set_mode(size)
 clock = pygame.time.Clock()
 running = True
