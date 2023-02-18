@@ -21,7 +21,7 @@ def load_image(name, color_key=None):
     return image
 
 
-class Border(pygame.sprite.Sprite):
+"""class Border(pygame.sprite.Sprite):
     # строго вертикальный или строго горизонтальный отрезок
     def __init__(self, x1, y1, x2, y2):
         super().__init__()
@@ -33,138 +33,142 @@ class Border(pygame.sprite.Sprite):
             self.add(HOR_BORDERS)
             self.image = pygame.Surface([x2 - x1, 1])
             self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
-        self.mask = pygame.mask.from_surface(self.image)
+        self.mask = pygame.mask.from_surface(self.image)"""
+
+
+class Board:
+    def __init__(self):
+        self.board = [['.'] * COUNT_W for _ in range(COUNT_H)]
+        self.figures = []
+
+    def draw(self):
+        if self.figures:
+            for figure in self.figures:
+                image = figure.image
+                for pos in figure.positions:
+                    y, x = pos
+                    screen.blit(image, (x * 30 + 10, y * 30 + 10))
 
 
 class Figure(pygame.sprite.Sprite):
-    def __init__(self, filename):  # 'tetris_sp.png'
+    def __init__(self, filename):  # сначала у потом х!
         super().__init__()
-        self.image = load_image(filename, (128, 128, 128, 255))
-        self.rect = self.image.get_rect()
-        self.mask = pygame.mask.from_surface(self.image)
-        self.v_down = DIST
-        self.v_right_left = self.rect.width // 3
-        self.rect.x = random.choice([i for i in range(10, WIDTH - self.rect.width - 20 + 1, self.rect.width // 3)])
-        self.rect.top = 30
+        self.image = load_image(filename)
+        self.size = self.image.get_rect()
+        self.scelet = random.choice(SCELETONS)      # относительно х
+
+        self.width = self.scelet[0]
+        self.height = self.scelet[1]
+
+        self.x = random.randrange(-1 + self.width, COUNT_W - self.width + 1)
+        self.y = 0
+        self.positions = []     # относительно доски
+
+        self.count_cubes = len(self.scelet) - 2
+
+        self.can_move_lr = True
+
+        for i in range(2, self.count_cubes + 2):  # мы всегда создаем на пустом месте
+            delta_y, delta_x = self.scelet[i]
+            BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+            self.positions.append((self.y + delta_y, self.x + delta_x))  # координаты в списке
+
+        BOARD.figures.append(self)
+
+    def checking_down(self):
+        can_move = True
+        for i in range(self.count_cubes):
+            y, x = self.positions[i]
+            if y + 1 >= COUNT_H or BOARD.board[y + 1][x] != '.' and (y + 1, x) not in self.positions:
+                can_move = False
+                break
+        return can_move
+
+    def checking_left_right(self):
+        can_move_l, can_move_r = True, True
+        for i in range(self.count_cubes):
+            y, x = self.positions[i]
+            if x - 1 < 0 or BOARD.board[y][x - 1] != '.' and (y, x - 1) not in self.positions:  # проверяем что слева свободно...
+                # ... и что мы не перемещаемся в себя
+                can_move_l = False
+            if x + 1 >= COUNT_W or BOARD.board[y][x + 1] != '.' and (y, x + 1) not in self.positions:
+                can_move_r = False
+            if not can_move_l and not can_move_r:
+                break
+        return can_move_l, can_move_r
 
     def update(self):
-        col_down_border, col_down_sprite = self.check_down()
-        if col_down_border or col_down_sprite:
-            self.v_down = 0
-            ALL_FIGURES.add(self)
+        if self.checking_down():
+            self.y += 1
+            for i in range(self.count_cubes):
+                y, x = self.positions[i]
+                BOARD.board[y][x] = '.'
+            for i in range(self.count_cubes):
+                delta_y, delta_x = self.scelet[i + 2]
+                BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+                self.positions[i] = (self.y + delta_y, self.x + delta_x)
         else:
-            self.rect = self.rect.move(0, self.v_down)
+            self.can_move_lr = False
 
-    def moving(self, comand):
-        col_left_border, col_right_border, col_left_sprite, col_right_sprite = self.check_left_right()
-        col_down_border, col_down_sprite = self.check_down()
-        if comand == 'l' and not col_left_border and not col_left_sprite:
-            self.rect = self.rect.move(-1 * self.v_right_left, 0)
-        elif comand == 'r' and not col_right_border and not col_right_sprite:
-            self.rect = self.rect.move(self.v_right_left, 0)
-        elif comand == 'd' and not col_down_border and not col_down_sprite:
-            self.rect = self.rect.move(0, self.v_down)
-
-    def check_down(self):
-        col_down_border, col_down_sprite = False, False     # пересечение с горизонт границей и нижними спрайтами
-
-        old_rect = self.rect.copy()
-
-        moving_self_down = self
-        moving_self_down.rect = moving_self_down.rect.move(0, moving_self_down.v_down - 1)
-
-        if pygame.sprite.collide_mask(moving_self_down, DOWN_BORDER):
-            col_down_border = True
-
-        for sp in ALL_FIGURES.sprites():
-            if pygame.sprite.collide_mask(moving_self_down, sp):
-                col_down_sprite = True
-                break
-
-        self.rect = old_rect.copy()
-        return col_down_border, col_down_sprite
-
-    def check_left_right(self):
-        left, right = VER_BORDERS.sprites()
-        col_left_border, col_right_border = False, False
-        col_left_sprite, col_right_sprite = False, False
-
-        old_rect = self.rect.copy()
-
-        moving_self_left = self
-        moving_self_left.rect = moving_self_left.rect.move(-1 * self.v_right_left + 4, 0)    # сдвинулись влево
-        if pygame.sprite.collide_mask(moving_self_left, left):
-            col_left_border = True
-        for sp in ALL_FIGURES.sprites():
-            if pygame.sprite.collide_mask(moving_self_left, sp):
-                col_left_sprite = True
-        self.rect = old_rect.copy()
-
-        moving_self_right = self
-        moving_self_right.rect = moving_self_right.rect.move(self.v_right_left - 3, 0)   # сдвинулись вправо
-        if pygame.sprite.collide_mask(moving_self_right, right):
-            col_right_border = True
-        for sp in ALL_FIGURES.sprites():
-            if pygame.sprite.collide_mask(moving_self_right, sp):
-                col_right_sprite = True
-        self.rect = old_rect.copy()
-
-        return col_left_border, col_right_border, col_left_sprite, col_right_sprite
+    def moving(self, command):
+        can_move_l, can_move_r = self.checking_left_right()
+        if self.can_move_lr:
+            if command == 'l' and can_move_l:
+                self.x -= 1
+                for i in range(self.count_cubes):
+                    y, x = self.positions[i]
+                    BOARD.board[y][x] = '.'
+                for i in range(self.count_cubes):
+                    delta_y, delta_x = self.scelet[i + 2]
+                    BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+                    self.positions[i] = (self.y + delta_y, self.x + delta_x)
+            elif command == 'r' and can_move_r:
+                self.x += 1
+                for i in range(self.count_cubes):
+                    y, x = self.positions[i]
+                    BOARD.board[y][x] = '.'
+                for i in range(self.count_cubes):
+                    delta_y, delta_x = self.scelet[i + 2]
+                    BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+                    self.positions[i] = (self.y + delta_y, self.x + delta_x)
 
 
-pygame.init()
-FPS = 20
-one_sq = 30
-size = WIDTH, HEIGHT = 35 * one_sq, 30 * one_sq
-DIST = 30
-screen = pygame.display.set_mode(size)
-clock = pygame.time.Clock()
-running = True
+def cleaning(y):
+    pass
 
-ALL_SPRITES = pygame.sprite.Group()
-ALL_FIGURES = pygame.sprite.Group()
-BORDERS = pygame.sprite.Group()
-VER_BORDERS = pygame.sprite.Group()
-HOR_BORDERS = pygame.sprite.Group()
 
-# start_screen()
-sp = None
+if __name__ == '__main__':
+    pygame.init()
+    FPS = 15
+    COUNT_W, COUNT_H = 25, 30
+    one_sq = 30
+    size = 20 + COUNT_W * one_sq, 20 + COUNT_H * one_sq
+    screen = pygame.display.set_mode(size)
+    clock = pygame.time.Clock()
+    running = True
 
-TOP_BORDER = Border(10, 10, WIDTH - 10, 10)  # верхняя
-print(TOP_BORDER.rect.x, TOP_BORDER.rect.y)
-DOWN_BORDER = Border(10, HEIGHT - 10, WIDTH - 10, HEIGHT - 10)  # нижняя
-print(DOWN_BORDER.rect.x, DOWN_BORDER.rect.y)
-LEFT_BORDER = Border(10, 10, 10, HEIGHT - 10)  # левая
-print(LEFT_BORDER.rect.x, LEFT_BORDER.rect.y)
-RIGHT_BORDER = Border(WIDTH - 10, 10, WIDTH - 10, HEIGHT - 10)  # правая
-print(RIGHT_BORDER.rect.x, RIGHT_BORDER.rect.y)
+    SCELETONS = [[2, 3, (0, 0), (0, 0 - 1), (1, 0 - 1), (2, 0 - 1)],  # width, height, points
+                 [3, 2, (0, 0), (1, 0), (1, 0 + 1), (1, 0 + 2)]]
+    ALL_COLORS = ['one.png', 'two.png']
 
-while running:
-    screen.fill((255, 255, 255))
+    BOARD = Board()
+    active_figure = None
 
-    pygame.draw.line(screen, (0, 0, 0), (10, 10), (WIDTH - 10, 10))
-    pygame.draw.line(screen, (0, 0, 0), (10, HEIGHT - 10), (WIDTH - 10, HEIGHT - 10))
-    pygame.draw.line(screen, (0, 0, 0), (10, 10), (10, HEIGHT - 10))
-    pygame.draw.line(screen, (0, 0, 0), (WIDTH - 10, 10), (WIDTH - 10, HEIGHT - 10))
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            sp = Figure('tetris_sp2.png')
-            ALL_SPRITES.add(sp)
-        if event.type == pygame.KEYDOWN and sp is not None:
-            if event.key == pygame.K_LEFT:
-                sp.moving('l')
-            if event.key == pygame.K_RIGHT:
-                sp.moving('r')
-            if event.key == pygame.K_DOWN:
-                sp.moving('d')
-            if event.key == pygame.K_UP:
-                sp.moving('u')
-    ALL_SPRITES.update()
-    ALL_SPRITES.draw(screen)
-    pygame.display.flip()
-    clock.tick(FPS)
-
-pygame.quit()
+    while running:
+        screen.fill(pygame.Color('white'))
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                active_figure = Figure(random.choice(ALL_COLORS))
+            if event.type == pygame.KEYDOWN and active_figure is not None:
+                if event.key == pygame.K_LEFT:
+                    active_figure.moving('l')
+                if event.key == pygame.K_RIGHT:
+                    active_figure.moving('r')
+        if active_figure is not None:
+            active_figure.update()
+        BOARD.draw()
+        clock.tick(FPS)
+        pygame.display.flip()
+    pygame.quit()
