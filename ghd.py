@@ -56,9 +56,18 @@ class Board:
         if self.figures:
             for figure in self.figures:
                 image = figure.image
-                for pos in figure.positions:
-                    y, x = pos
-                    screen.blit(image, (x * 30 + 10, y * 30 + 10))
+                for i in range(len(figure.positions)):
+                    y, x = figure.positions[i]
+                    if BOARD.board[y][x] == '*':
+                        screen.blit(image, (x * 30 + 10, y * 30 + 10))
+
+    def change_y(self, del_y):
+        for j in range(len(self.figures)):
+            y = self.figures[j].y
+            if y < del_y:
+                self.figures[j].y += 1
+                self.figures[j].make_positions()
+        return
 
 
 class Figure(pygame.sprite.Sprite):
@@ -79,14 +88,7 @@ class Figure(pygame.sprite.Sprite):
         self.count_cubes = len(self.scelet) - 2
 
         self.can_move_lr = True
-
-        for i in range(2, self.count_cubes + 2):  # мы всегда создаем на пустом месте
-            delta_y, delta_x = self.scelet[i]
-            BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
-
-            BOARD.board_index[self.y + delta_y][self.x + delta_x] = GLOBAL_ORDER_LAST
-
-            self.positions.append((self.y + delta_y, self.x + delta_x))  # координаты в списке
+        self.make_positions()
 
         BOARD.figures.append(self)
 
@@ -155,6 +157,16 @@ class Figure(pygame.sprite.Sprite):
                     BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
                     self.positions[i] = (self.y + delta_y, self.x + delta_x)
 
+    def make_positions(self):
+        self.positions = []
+        for i in range(2, self.count_cubes + 2):  # мы всегда создаем на пустом месте
+            delta_y, delta_x = self.scelet[i]
+            BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+
+            BOARD.board_index[self.y + delta_y][self.x + delta_x] = GLOBAL_ORDER_LAST
+
+            self.positions.append((self.y + delta_y, self.x + delta_x))  # координаты в списке
+
 
 def check_on_line():
     one = ['*'] * COUNT_W
@@ -186,9 +198,12 @@ def cleaning(clean_y):
                 img_rect = pygame.Rect(15 + j * 30, 15 + y * 30, 30, 30)
                 screen.blit(img, img_rect)
                 pygame.display.update()
-                clock.tick(FPS)
+            clock.tick(FPS)
         del BOARD.board[y]
+        del BOARD.board_index[y]
         BOARD.board.insert(0, ['.'] * COUNT_W)
+        BOARD.board_index.insert(0, [None] * COUNT_W)
+        BOARD.change_y(y)
         screen.fill((255, 255, 255))
         BOARD.draw()
         pygame.display.flip()
@@ -250,7 +265,7 @@ if __name__ == '__main__':
             active_figure = None
         BOARD.draw()
         clean_y = check_on_line()
-        if clean_y:
+        if clean_y and not active_figure.checking_down():
             cleaning(clean_y)
         clock.tick(FPS)
         pygame.display.flip()
