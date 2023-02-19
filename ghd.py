@@ -21,24 +21,35 @@ def load_image(name, color_key=None):
     return image
 
 
-"""class Border(pygame.sprite.Sprite):
-    # строго вертикальный или строго горизонтальный отрезок
-    def __init__(self, x1, y1, x2, y2):
+class AnimatedSprite(pygame.sprite.Sprite):
+    def __init__(self, sheet, columns, rows, x, y):
         super().__init__()
-        if x1 == x2:  # вертикальная стенка
-            self.add(VER_BORDERS)
-            self.image = pygame.Surface([1, y2 - y1])
-            self.rect = pygame.Rect(x1, y1, 1, y2 - y1)
-        else:  # горизонтальная стенка
-            self.add(HOR_BORDERS)
-            self.image = pygame.Surface([x2 - x1, 1])
-            self.rect = pygame.Rect(x1, y1, x2 - x1, 1)
-        self.mask = pygame.mask.from_surface(self.image)"""
+        self.frames = []
+        self.cut_sheet(sheet, columns, rows)
+        self.cur_frame = 0
+        self.image = self.frames[self.cur_frame]
+        self.rect = self.rect.move(x, y)
+
+    def cut_sheet(self, sheet, columns, rows):
+        self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
+                                sheet.get_height() // rows)
+        for j in range(rows):
+            for i in range(columns):
+                frame_location = (self.rect.w * i, self.rect.h * j)
+                self.frames.append(sheet.subsurface(pygame.Rect(
+                    frame_location, self.rect.size)))
+
+    def update(self):
+        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+        self.image = self.frames[self.cur_frame]
 
 
 class Board:
     def __init__(self):
         self.board = [['.'] * COUNT_W for _ in range(COUNT_H)]
+
+        self.board_index = [[None] * COUNT_W for _ in range(COUNT_H)]
+
         self.figures = []
 
     def draw(self):
@@ -56,6 +67,7 @@ class Figure(pygame.sprite.Sprite):
         self.image = load_image(filename)
         self.size = self.image.get_rect()
         self.scelet = random.choice(SCELETONS)      # относительно х
+        self.scelet = SCELETONS[2]
 
         self.width = self.scelet[0]
         self.height = self.scelet[1]
@@ -71,6 +83,9 @@ class Figure(pygame.sprite.Sprite):
         for i in range(2, self.count_cubes + 2):  # мы всегда создаем на пустом месте
             delta_y, delta_x = self.scelet[i]
             BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+
+            BOARD.board_index[self.y + delta_y][self.x + delta_x] = GLOBAL_ORDER_LAST
+
             self.positions.append((self.y + delta_y, self.x + delta_x))  # координаты в списке
 
         BOARD.figures.append(self)
@@ -98,16 +113,24 @@ class Figure(pygame.sprite.Sprite):
         return can_move_l, can_move_r
 
     def update(self):
+        global GLOBAL_ORDER_LAST
         if self.checking_down():
             self.y += 1
             for i in range(self.count_cubes):
                 y, x = self.positions[i]
                 BOARD.board[y][x] = '.'
+
+                BOARD.board_index[y][x] = None
+
             for i in range(self.count_cubes):
                 delta_y, delta_x = self.scelet[i + 2]
                 BOARD.board[self.y + delta_y][self.x + delta_x] = '*'
+
+                BOARD.board_index[self.y + delta_y][self.x + delta_x] = GLOBAL_ORDER_LAST
+
                 self.positions[i] = (self.y + delta_y, self.x + delta_x)
         else:
+            GLOBAL_ORDER_LAST += 1
             self.can_move_lr = False
 
     def moving(self, command):
@@ -133,23 +156,78 @@ class Figure(pygame.sprite.Sprite):
                     self.positions[i] = (self.y + delta_y, self.x + delta_x)
 
 
-def cleaning(y):
-    pass
+def check_on_line():
+    one = ['*'] * COUNT_W
+    y_to_clean = []
+    for i in range(COUNT_H):
+        if BOARD.board[i] == one:
+            y_to_clean.append(i)
+    return y_to_clean
+
+
+def cleaning(clean_y):
+    global BOARD
+    list_of_image_in_line = []  # список линий где нужно удалить квадраты
+    for y in clean_y:
+        one_line = []
+        for index in BOARD.board_index[y]:
+            image = BOARD.figures[index].image
+            image = make_small(image)
+            one_line.append(image)  # линия в виде списка с картинками
+        list_of_image_in_line.append(one_line)
+
+    for i in range(len(clean_y)):
+        y = clean_y[i]
+        one_l = list_of_image_in_line[i]
+        for x in range(3):
+            pygame.draw.rect(screen, pygame.color.Color('white'), (10, 10 + 30 * y, 30 * COUNT_W, 30))
+            for j in range(COUNT_W):
+                img = one_l[j][x]
+                img_rect = pygame.Rect(15 + j * 30, 15 + y * 30, 30, 30)
+                screen.blit(img, img_rect)
+                pygame.display.update()
+                clock.tick(FPS)
+        del BOARD.board[y]
+        BOARD.board.insert(0, ['.'] * COUNT_W)
+        screen.fill((255, 255, 255))
+        BOARD.draw()
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
+def make_small(image):
+    new_img = None
+    ret_lst = []
+    width, height = 30, 30
+    for i in range(3):
+        new_img = pygame.transform.scale(image, (width - 10, height - 10))
+        ret_lst.append(new_img)
+        width -= 10
+        height -= 10
+    return ret_lst
 
 
 if __name__ == '__main__':
     pygame.init()
-    FPS = 15
-    COUNT_W, COUNT_H = 25, 30
+    FPS = 10
+    COUNT_W, COUNT_H = 24, 30
     one_sq = 30
     size = 20 + COUNT_W * one_sq, 20 + COUNT_H * one_sq
     screen = pygame.display.set_mode(size)
     clock = pygame.time.Clock()
     running = True
 
-    SCELETONS = [[2, 3, (0, 0), (0, 0 - 1), (1, 0 - 1), (2, 0 - 1)],  # width, height, points
-                 [3, 2, (0, 0), (1, 0), (1, 0 + 1), (1, 0 + 2)]]
-    ALL_COLORS = ['one.png', 'two.png']
+    GLOBAL_ORDER_LAST = 0
+
+    SCELETONS = [[2, 3, (0, 0), (0, 0 - 1), (1, 0 - 1), (2, 0 - 1)],  # width, height, points, (delta_y, delta_x) ...
+                 [3, 2, (0, 0), (1, 0), (1, 0 + 1), (1, 0 + 2)],
+                 [4, 1, (0, 0), (0, 1), (0, 2), (0, 3)],
+                 [2, 2, (0, 0), (0, 1), (1, 0), (1, 1)]]
+    ALL_COLORS = ['red.png', 'yellow.png', 'green.png']
+
+    ANIMATED_SPRITES = [AnimatedSprite(load_image("cut_sheet_green.png", (0, 255, 255)), 3, 1, 50, 50),
+                        AnimatedSprite(load_image("cut_sheet_red.png", (0, 255, 255)), 3, 1, 50, 50),
+                        AnimatedSprite(load_image("cut_sheet_yellow.png", (0, 255, 255)), 3, 1, 50, 50)]
 
     BOARD = Board()
     active_figure = None
@@ -168,7 +246,12 @@ if __name__ == '__main__':
                     active_figure.moving('r')
         if active_figure is not None:
             active_figure.update()
+        if active_figure is not None and active_figure.can_move_lr is False:
+            active_figure = None
         BOARD.draw()
+        clean_y = check_on_line()
+        if clean_y:
+            cleaning(clean_y)
         clock.tick(FPS)
         pygame.display.flip()
     pygame.quit()
