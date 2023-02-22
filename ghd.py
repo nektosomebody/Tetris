@@ -53,7 +53,7 @@ class Figure(pygame.sprite.Sprite):
         self.image = load_image(filename)
         self.size = self.image.get_rect()
         self.scelet = random.choice(SCELETONS)      # относительно х
-        self.scelet = SCELETONS[2]
+        # self.scelet = SCELETONS[2]
 
         self.width = self.scelet[0]
         self.height = self.scelet[1]
@@ -148,7 +148,6 @@ class Figure(pygame.sprite.Sprite):
 def check_on_line():
     one = ['*'] * COUNT_W
     y_to_clean = []
-    """sp_under_red_line = False"""
     for i in range(COUNT_H):
         if BOARD.board[i] == one:
             y_to_clean.append(i)
@@ -203,36 +202,91 @@ def make_small(image):
     return ret_lst
 
 
+def terminate():
+    pygame.quit()
+    sys.exit()
+
+
+def start_screen():
+    screen.fill(pygame.Color('white'))
+    text_coord = 50
+    font_main = pygame.font.Font("unicephalon.ttf", 100)
+    s_r = font_main.render("TETRIS", 1, pygame.Color('black'))
+    in_r = s_r.get_rect()
+    in_r.x = (WIDTH - in_r.width) // 2
+    in_r.top = text_coord
+    screen.blit(s_r, in_r)
+    font = pygame.font.Font(None, 140)
+
+    button_start = font.render('START', True, pygame.Color('white'))
+    button_start_rect = button_start.get_rect()
+    width_but, height_but = button_start_rect.width + 20, button_start_rect.height + 20
+    pygame.draw.rect(screen, (255, 255, 87), ((WIDTH - width_but) // 2, (HEIGHT - height_but) // 3 * 2,
+                                              width_but, height_but))
+    button_start_rect.x = (WIDTH - width_but) // 2 + 10
+    button_start_rect.top = (HEIGHT - height_but) // 3 * 2 + 10
+    screen.blit(button_start, button_start_rect)
+
+    while True:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                terminate()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                if button_start_rect.x <= x <= (button_start_rect.x + button_start_rect.width) and\
+                        button_start_rect.y <= y <= (button_start_rect.y + button_start_rect.height):
+                    return  # начинаем игру
+        pygame.display.flip()
+        clock.tick(FPS)
+
+
 def game_over():
     screen.fill(pygame.color.Color('white'))
 
-    font = pygame.font.Font(None, 50)  # score
+    font = pygame.font.Font(None, 100)  # score
     score = font.render(f"TOTAL SCORE {TOTAL_SCORE}", 1, pygame.color.Color('black'))
     score_rect = score.get_rect()
     screen.blit(score,
-                ((COUNT_W * one_sq - score_rect.width) // 2, (COUNT_H * one_sq - score_rect.height) // 3))
+                ((BORDER_LEFT_RIGHT * 2 + COUNT_W * one_sq - score_rect.width) // 2, (BORDER_DOWN + BORDER_UP + COUNT_H * one_sq - score_rect.height) // 3))
+
+    font = pygame.font.Font(None, 70)
+    go_back = font.render('GO BACK', True, pygame.Color('black'))
+    go_back_rect = go_back.get_rect()
+    dist_x = (COUNT_W * one_sq + BORDER_LEFT_RIGHT * 2 - go_back_rect.width * 2) // 3
+    dist_y = ((COUNT_H * one_sq + BORDER_DOWN + BORDER_UP) - (score_rect.y + score_rect.height) - go_back_rect.height) // 2
+    go_back_rect.x = dist_x
+    go_back_rect.y = (score_rect.y + score_rect.height) + dist_y
+    screen.blit(go_back, (go_back_rect.x, go_back_rect.y))
 
     # button 1
-    pygame.draw.rect(screen, pygame.color.Color('black'), (100, 100, 50, 50), border_radius=1)
+    but_rect = pygame.rect.Rect(go_back_rect.x - 3, go_back_rect.y - 3, go_back_rect.width + 5, go_back_rect.height + 5)
+    pygame.draw.rect(screen, pygame.color.Color('orange'), but_rect, border_radius=5, width=4)
+
+    restart = font.render('RESTART', True, pygame.Color('black'))
+    restart_rect = restart.get_rect()
+    restart_rect.x = dist_x * 2 + go_back_rect.width
+    restart_rect.y = go_back_rect.y
+    screen.blit(restart, (restart_rect.x, restart_rect.y))
 
     # button 2
-    pygame.draw.rect(screen, pygame.color.Color('black'), (200, 100, 50, 50), border_radius=1)
-    """run = True
-    img = load_image('gameover.png')
-    img_rect = img.get_rect()
-    img_rect.x = -600
-    dist = 20
-    while run:
+    but_rect.x = restart_rect.x - 5
+    pygame.draw.rect(screen, pygame.color.Color('orange'), but_rect, border_radius=5, width=4)
+
+    running = True
+    while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
-                run = False
-        if img_rect.x > -20:
-            dist = 0
-        img_rect.x += dist
-        screen.fill((255, 255, 255))
-        screen.blit(img, img_rect)
-        pygame.display.update()
-        clock.tick(FPS)"""
+                terminate()
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                x, y = event.pos
+                if go_back_rect.x <= x <= (go_back_rect.x + go_back_rect.width) and \
+                        go_back_rect.y <= y <= (go_back_rect.y + go_back_rect.height):
+                    return
+                if restart_rect.x <= x <= (restart_rect.x + restart_rect.width) and \
+                        restart_rect.y <= y <= (restart_rect.y + restart_rect.height):
+                    return
+        pygame.display.flip()
+        clock.tick(FPS)
 
 
 def design():
@@ -257,7 +311,7 @@ if __name__ == '__main__':
     pygame.display.set_caption('TETRIS')
 
     FPS = 10
-    COUNT_W, COUNT_H = 20, 20
+    COUNT_W, COUNT_H = 20, 25
     BORDER_DOWN = 50
     BORDER_UP = 10
     BORDER_LEFT_RIGHT = 10
@@ -265,7 +319,7 @@ if __name__ == '__main__':
     TOTAL_SCORE = 0
     COUNT_OF_POINTS = 5
 
-    size = BORDER_LEFT_RIGHT * 2 + COUNT_W * one_sq, 10 + BORDER_DOWN + COUNT_H * one_sq
+    size = WIDTH, HEIGHT = BORDER_LEFT_RIGHT * 2 + COUNT_W * one_sq, 10 + BORDER_DOWN + COUNT_H * one_sq
     screen = pygame.display.set_mode(size)
     clock = pygame.time.Clock()
     running = True
@@ -284,14 +338,18 @@ if __name__ == '__main__':
 
     BOARD = Board()
     active_figure = None
+    MAKE_NEW_FIGURE = pygame.USEREVENT + 1
+    pygame.time.set_timer(MAKE_NEW_FIGURE, FPS)
 
+    start_screen()
     while running:
         screen.fill(pygame.Color('white'))
         design()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN: # active_figure is None:
+                terminate()
+            if event.type == MAKE_NEW_FIGURE and active_figure is None:
                 active_figure = Figure(random.choice(ALL_COLORS))
             if event.type == pygame.KEYDOWN and active_figure is not None:
                 if event.key == pygame.K_LEFT:
@@ -307,8 +365,8 @@ if __name__ == '__main__':
         if clean_y and not active_figure.checking_down():
             cleaning(clean_y)
         if '*' in BOARD.board[2] and active_figure is None:
-            pass
-            # game_over()
+            running = False
         clock.tick(FPS)
         pygame.display.flip()
+    game_over()
     pygame.quit()
